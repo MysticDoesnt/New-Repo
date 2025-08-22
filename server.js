@@ -1,7 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
-const path = require('path');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,6 +9,9 @@ const PORT = process.env.PORT || 3000;
 // Configuration - Change these credentials!
 const VALID_USERNAME = process.env.AUTH_USERNAME || 'TOWEREMP';
 const VALID_PASSWORD_HASH = process.env.AUTH_PASSWORD_HASH || bcrypt.hashSync('38.59T', 10);
+
+// The URL of your protected app (change this to your other Koyeb app URL)
+const PROTECTED_APP_URL = process.env.PROTECTED_APP_URL || 'https://your-other-app.koyeb.app';
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
@@ -25,9 +28,6 @@ app.use(session({
   }
 }));
 
-// Serve static files
-app.use('/static', express.static('public'));
-
 // Authentication middleware
 const requireAuth = (req, res, next) => {
   if (req.session.authenticated) {
@@ -37,60 +37,10 @@ const requireAuth = (req, res, next) => {
   }
 };
 
-// Routes
-app.get('/', requireAuth, (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Protected Website</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 800px;
-                margin: 50px auto;
-                padding: 20px;
-                background-color: #f5f5f5;
-            }
-            .container {
-                background: white;
-                padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                text-align: center;
-            }
-            h1 { color: #333; }
-            .logout-btn {
-                background: #dc3545;
-                color: white;
-                padding: 10px 20px;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                text-decoration: none;
-                display: inline-block;
-                margin-top: 20px;
-            }
-            .logout-btn:hover { background: #c82333; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🎉 Welcome to the Protected Website!</h1>
-            <p>Congratulations! You've successfully logged in.</p>
-            <p>This is the content that only authenticated users can see.</p>
-            <a href="/logout" class="logout-btn">Logout</a>
-        </div>
-    </body>
-    </html>
-  `);
-});
-
+// Login routes (unchanged)
 app.get('/login', (req, res) => {
   const error = req.session.loginError;
-  req.session.loginError = null; // Clear error after displaying
+  req.session.loginError = null;
 
   res.send(`
     <!DOCTYPE html>
@@ -98,7 +48,7 @@ app.get('/login', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Login - Protected Website</title>
+        <title>Login Required</title>
         <style>
             body {
                 font-family: Arial, sans-serif;
@@ -156,25 +106,11 @@ app.get('/login', (req, res) => {
                 border: 1px solid #f5c6cb;
                 border-radius: 5px;
             }
-            .info {
-                background: #d1ecf1;
-                border: 1px solid #bee5eb;
-                color: #0c5460;
-                padding: 10px;
-                border-radius: 5px;
-                margin-bottom: 20px;
-                font-size: 14px;
-            }
         </style>
     </head>
     <body>
         <div class="login-container">
-            <h2>🔒 Login Required</h2>
-            <div class="info">
-                <strong>Default credentials:</strong><br>
-                Username: TOWEREMP<br>
-                Password: 38.59T
-            </div>
+            <h2>🔒 Authentication Required</h2>
             ${error ? `<div class="error">${error}</div>` : ''}
             <form method="POST" action="/login">
                 <div class="form-group">
@@ -185,7 +121,7 @@ app.get('/login', (req, res) => {
                     <label for="password">Password:</label>
                     <input type="password" id="password" name="password" required>
                 </div>
-                <button type="submit" class="login-btn">Login</button>
+                <button type="submit" class="login-btn">Access Application</button>
             </form>
         </div>
     </body>
@@ -214,16 +150,24 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// Handle 404
-app.use((req, res) => {
-  res.status(404).send(`
-    <h1>404 - Page Not Found</h1>
-    <p><a href="/">Go to Home</a></p>
-  `);
-});
+// Proxy all other requests to the protected app (after authentication)
+app.use('/', requireAuth, createProxyMiddleware({
+  target: PROTECTED_APP_URL,
+  changeOrigin: true,
+  ws: true, // Enable WebSocket proxying if needed
+  onError: (err, req, res) => {
+    console.error('Proxy error:', err);
+    res.status(500).send(`
+      <h1>Service Temporarily Unavailable</h1>
+      <p>The protected application is not responding.</p>
+      <p><a href="/logout">Logout</a></p>
+    `);
+  }
+}));
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Auth gateway running on port ${PORT}`);
+  console.log(`Protecting: ${PROTECTED_APP_URL}`);
   console.log(`Default login: TOWEREMP / 38.59T`);
 });
 
