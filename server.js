@@ -43,7 +43,7 @@ app.get('/login', (req, res) => {
   req.session.loginError = null;
 
   // You can set your logo URL here, or via environment variable
-  const logoUrl = process.env.LOGO_URL || 'https://via.placeholder.com/150x150/6366f1/ffffff?text=LOGO';
+  const logoUrl = process.env.LOGO_URL || 'https://imgur.com/a/zTj5EBS';
 
   res.send(`
     <!DOCTYPE html>
