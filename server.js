@@ -6,12 +6,12 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuration - Change these credentials!
+// Configuration - Change these!
 const VALID_USERNAME = process.env.AUTH_USERNAME || 'TOWEREMP';
 const VALID_PASSWORD_HASH = process.env.AUTH_PASSWORD_HASH || bcrypt.hashSync('38.59T', 10);
 
-// The URL of your protected app (change this to your other Koyeb app URL)
-const PROTECTED_APP_URL = process.env.PROTECTED_APP_URL || 'https://cloudy-casey-mysticdoesnt-591d8e3c.koyeb.app/';
+// The URL of the app you want to protect
+const PROTECTED_APP_URL = process.env.PROTECTED_APP_URL || 'https://your-other-app.koyeb.app';
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
@@ -23,7 +23,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // Set to true if using HTTPS
+    secure: false,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -37,7 +37,7 @@ const requireAuth = (req, res, next) => {
   }
 };
 
-// Login routes (unchanged)
+// Login page
 app.get('/login', (req, res) => {
   const error = req.session.loginError;
   req.session.loginError = null;
@@ -115,13 +115,13 @@ app.get('/login', (req, res) => {
             <form method="POST" action="/login">
                 <div class="form-group">
                     <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required>
+                    <input type="text" id="username" name="username" required autofocus>
                 </div>
                 <div class="form-group">
                     <label for="password">Password:</label>
                     <input type="password" id="password" name="password" required>
                 </div>
-                <button type="submit" class="login-btn">Access Application</button>
+                <button type="submit" class="login-btn">Login</button>
             </form>
         </div>
     </body>
@@ -129,6 +129,7 @@ app.get('/login', (req, res) => {
   `);
 });
 
+// Handle login
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -141,6 +142,7 @@ app.post('/login', (req, res) => {
   }
 });
 
+// Logout route
 app.get('/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
@@ -154,21 +156,26 @@ app.get('/logout', (req, res) => {
 app.use('/', requireAuth, createProxyMiddleware({
   target: PROTECTED_APP_URL,
   changeOrigin: true,
-  ws: true, // Enable WebSocket proxying if needed
+  ws: true, // Enable WebSocket proxying
+  onProxyReq: (proxyReq, req, res) => {
+    // Forward the original host header
+    proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+    proxyReq.setHeader('X-Forwarded-Proto', req.protocol);
+  },
   onError: (err, req, res) => {
     console.error('Proxy error:', err);
     res.status(500).send(`
-      <h1>Service Temporarily Unavailable</h1>
-      <p>The protected application is not responding.</p>
+      <h1>Error connecting to application</h1>
+      <p>Unable to connect to the protected application.</p>
       <p><a href="/logout">Logout</a></p>
     `);
   }
 }));
 
 app.listen(PORT, () => {
-  console.log(`Auth gateway running on port ${PORT}`);
+  console.log(`Gateway running on port ${PORT}`);
   console.log(`Protecting: ${PROTECTED_APP_URL}`);
-  console.log(`Default login: TOWEREMP / 38.59T`);
+  console.log(`Login: ${VALID_USERNAME} / (password hidden)`);
 });
 
 module.exports = app;
