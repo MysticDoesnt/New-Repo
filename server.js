@@ -1,7 +1,6 @@
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
-const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,8 +9,8 @@ const PORT = process.env.PORT || 3000;
 const VALID_USERNAME = process.env.AUTH_USERNAME || 'TOWEREMP';
 const VALID_PASSWORD_HASH = process.env.AUTH_PASSWORD_HASH || bcrypt.hashSync('38.59T', 10);
 
-// The URL of your protected app (change this to your other Koyeb app URL)
-const PROTECTED_APP_URL = process.env.PROTECTED_APP_URL || 'cloudy-casey-mysticdoesnt-591d8e3c.koyeb.app/';
+// The URL of your protected app
+const PROTECTED_APP_URL = process.env.PROTECTED_APP_URL;
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
@@ -23,7 +22,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // Set to true if using HTTPS
+    secure: false,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -37,7 +36,7 @@ const requireAuth = (req, res, next) => {
   }
 };
 
-// Login routes (unchanged)
+// Login page
 app.get('/login', (req, res) => {
   const error = req.session.loginError;
   req.session.loginError = null;
@@ -150,24 +149,90 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// Proxy all other requests to the protected app (after authentication)
-app.use('/', requireAuth, createProxyMiddleware({
-  target: PROTECTED_APP_URL,
-  changeOrigin: true,
-  ws: true, // Enable WebSocket proxying if needed
-  onError: (err, req, res) => {
-    console.error('Proxy error:', err);
-    res.status(500).send(`
-      <h1>Service Temporarily Unavailable</h1>
-      <p>The protected application is not responding.</p>
-      <p><a href="/logout">Logout</a></p>
+// Main route - either proxy or show welcome page
+app.get('/', requireAuth, (req, res) => {
+  // If no protected app URL is set, show a welcome page
+  if (!PROTECTED_APP_URL) {
+    return res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Protected Website</title>
+          <style>
+              body {
+                  font-family: Arial, sans-serif;
+                  max-width: 800px;
+                  margin: 50px auto;
+                  padding: 20px;
+                  background-color: #f5f5f5;
+              }
+              .container {
+                  background: white;
+                  padding: 30px;
+                  border-radius: 10px;
+                  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                  text-align: center;
+              }
+              h1 { color: #333; }
+              .logout-btn {
+                  background: #dc3545;
+                  color: white;
+                  padding: 10px 20px;
+                  border: none;
+                  border-radius: 5px;
+                  cursor: pointer;
+                  text-decoration: none;
+                  display: inline-block;
+                  margin-top: 20px;
+              }
+              .logout-btn:hover { background: #c82333; }
+              .info {
+                  background: #d1ecf1;
+                  border: 1px solid #bee5eb;
+                  color: #0c5460;
+                  padding: 15px;
+                  border-radius: 5px;
+                  margin: 20px 0;
+              }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h1>🎉 Welcome!</h1>
+              <p>You've successfully logged in.</p>
+              <div class="info">
+                  <strong>⚙️ Configuration Required:</strong><br>
+                  To redirect to a protected app, set the <code>PROTECTED_APP_URL</code> environment variable in Koyeb.
+              </div>
+              <a href="/logout" class="logout-btn">Logout</a>
+          </div>
+      </body>
+      </html>
     `);
   }
-}));
+
+  // If protected app URL is set, redirect to it
+  res.redirect(PROTECTED_APP_URL);
+});
+
+// Catch-all for other routes when authenticated
+app.use(requireAuth, (req, res) => {
+  if (!PROTECTED_APP_URL) {
+    return res.redirect('/');
+  }
+  // Redirect to the protected app with the same path
+  res.redirect(PROTECTED_APP_URL + req.path);
+});
 
 app.listen(PORT, () => {
   console.log(`Auth gateway running on port ${PORT}`);
-  console.log(`Protecting: ${PROTECTED_APP_URL}`);
+  if (PROTECTED_APP_URL) {
+    console.log(`Protecting: ${PROTECTED_APP_URL}`);
+  } else {
+    console.log(`⚠️  No PROTECTED_APP_URL set - showing welcome page`);
+  }
   console.log(`Default login: TOWEREMP / 38.59T`);
 });
 
