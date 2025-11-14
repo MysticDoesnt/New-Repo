@@ -1,17 +1,21 @@
 {
   "name": "simple-auth-website",
   "version": "1.0.0",
-  "description": "A simple authenticated website",
+  "description": "A simple authenticated website for Koyeb deployment",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
-    "express": "4.18.2",
-    "express-session": "1.17.3",
-    "bcryptjs": "2.4.3"
+    "express": "^4.18.0",
+    "express-session": "^1.17.0",
+    "bcryptjs": "^2.4.0"
   },
   "engines": {
-    "node": "18.x"
-  }
+    "node": ">=18.0.0"
+  },
+  "keywords": ["authentication", "express", "koyeb"],
+  "author": "Your Name",
+  "license": "MIT"
 }
