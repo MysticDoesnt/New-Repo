@@ -149,7 +149,7 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// Main route - either proxy or show welcome page
+// Main route - either redirect or show welcome page
 app.get('/', requireAuth, (req, res) => {
   // If no protected app URL is set, show a welcome page
   if (!PROTECTED_APP_URL) {
@@ -213,17 +213,8 @@ app.get('/', requireAuth, (req, res) => {
     `);
   }
 
-  // If protected app URL is set, redirect to it
+  // If protected app URL is set, redirect to it (ONE TIME ONLY)
   res.redirect(PROTECTED_APP_URL);
-});
-
-// Catch-all for other routes when authenticated
-app.use(requireAuth, (req, res) => {
-  if (!PROTECTED_APP_URL) {
-    return res.redirect('/');
-  }
-  // Redirect to the protected app with the same path
-  res.redirect(PROTECTED_APP_URL + req.path);
 });
 
 app.listen(PORT, () => {
