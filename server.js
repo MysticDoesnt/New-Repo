@@ -1,7 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
