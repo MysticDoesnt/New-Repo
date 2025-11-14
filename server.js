@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,7 +11,16 @@ const VALID_USERNAME = process.env.AUTH_USERNAME || 'TOWEREMP';
 const VALID_PASSWORD_HASH = process.env.AUTH_PASSWORD_HASH || bcrypt.hashSync('38.59T', 10);
 
 // The URL of your protected app
-const PROTECTED_APP_URL = process.env.PROTECTED_APP_URL;
+let PROTECTED_APP_URL = process.env.PROTECTED_APP_URL;
+
+// Validate and fix the URL if needed
+if (PROTECTED_APP_URL) {
+  PROTECTED_APP_URL = PROTECTED_APP_URL.replace(/\/+$/, '');
+  if (!PROTECTED_APP_URL.startsWith('http://') && !PROTECTED_APP_URL.startsWith('https://')) {
+    PROTECTED_APP_URL = 'https://' + PROTECTED_APP_URL;
+  }
+  console.log(`Protected URL configured as: ${PROTECTED_APP_URL}`);
+}
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
@@ -114,7 +124,7 @@ app.get('/login', (req, res) => {
             <form method="POST" action="/login">
                 <div class="form-group">
                     <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required>
+                    <input type="text" id="username" name="username" required autofocus>
                 </div>
                 <div class="form-group">
                     <label for="password">Password:</label>
@@ -149,11 +159,10 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// Main route - either redirect or show welcome page
-app.get('/', requireAuth, (req, res) => {
-  // If no protected app URL is set, show a welcome page
-  if (!PROTECTED_APP_URL) {
-    return res.send(`
+// If no protected app URL is set, show welcome page on root
+if (!PROTECTED_APP_URL) {
+  app.get('/', requireAuth, (req, res) => {
+    res.send(`
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -196,6 +205,11 @@ app.get('/', requireAuth, (req, res) => {
                   border-radius: 5px;
                   margin: 20px 0;
               }
+              code {
+                  background: #f4f4f4;
+                  padding: 2px 6px;
+                  border-radius: 3px;
+              }
           </style>
       </head>
       <body>
@@ -204,23 +218,89 @@ app.get('/', requireAuth, (req, res) => {
               <p>You've successfully logged in.</p>
               <div class="info">
                   <strong>⚙️ Configuration Required:</strong><br>
-                  To redirect to a protected app, set the <code>PROTECTED_APP_URL</code> environment variable in Koyeb.
+                  To proxy a protected app, set the <code>PROTECTED_APP_URL</code> environment variable in Koyeb.
               </div>
               <a href="/logout" class="logout-btn">Logout</a>
           </div>
       </body>
       </html>
     `);
-  }
-
-  // If protected app URL is set, redirect to it (ONE TIME ONLY)
-  res.redirect(PROTECTED_APP_URL);
-});
+  });
+} else {
+  // Fetch and inline the protected app content
+  const axios = require('axios');
+  
+  app.get('*', requireAuth, async (req, res) => {
+    try {
+      // Fetch the content from protected app
+      const response = await axios.get(PROTECTED_APP_URL + req.path, {
+        headers: {
+          'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0'
+        }
+      });
+      
+      let content = response.data;
+      
+      // If it's HTML, inject a logout button
+      if (response.headers['content-type']?.includes('text/html')) {
+        const logoutButton = `
+          <div style="position:fixed;top:0;right:0;background:rgba(0,0,0,0.8);padding:10px 20px;z-index:9999;">
+            <a href="/logout" style="background:#dc3545;color:white;padding:8px 16px;border-radius:5px;text-decoration:none;font-size:14px;">Logout</a>
+          </div>
+        `;
+        content = content.replace('</body>', logoutButton + '</body>');
+      }
+      
+      res.send(content);
+    } catch (err) {
+      console.error('Fetch error:', err.message);
+      res.status(502).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Error</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    max-width: 600px;
+                    margin: 100px auto;
+                    padding: 20px;
+                    text-align: center;
+                }
+                h1 { color: #dc3545; }
+                .error-box {
+                    background: #f8d7da;
+                    border: 1px solid #f5c6cb;
+                    padding: 20px;
+                    border-radius: 5px;
+                    margin: 20px 0;
+                }
+                code {
+                    background: #f4f4f4;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                }
+                a { color: #007bff; text-decoration: none; }
+            </style>
+        </head>
+        <body>
+            <h1>⚠️ Cannot Load Application</h1>
+            <div class="error-box">
+                <p>Failed to fetch content from: <code>${PROTECTED_APP_URL}</code></p>
+                <p>Error: <code>${err.message}</code></p>
+            </div>
+            <p><a href="/logout">Logout</a> | <a href="/">Try Again</a></p>
+        </body>
+        </html>
+      `);
+    }
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`Auth gateway running on port ${PORT}`);
   if (PROTECTED_APP_URL) {
-    console.log(`Protecting: ${PROTECTED_APP_URL}`);
+    console.log(`Proxying to: ${PROTECTED_APP_URL}`);
   } else {
     console.log(`⚠️  No PROTECTED_APP_URL set - showing welcome page`);
   }
