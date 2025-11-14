@@ -42,6 +42,9 @@ app.get('/login', (req, res) => {
   const error = req.session.loginError;
   req.session.loginError = null;
 
+  // You can set your logo URL here, or via environment variable
+  const logoUrl = process.env.LOGO_URL || 'https://via.placeholder.com/150x150/6366f1/ffffff?text=LOGO';
+
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -50,78 +53,157 @@ app.get('/login', (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Login Required</title>
         <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
             body {
-                font-family: Arial, sans-serif;
-                max-width: 400px;
-                margin: 100px auto;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
                 padding: 20px;
-                background-color: #f5f5f5;
             }
+            
             .login-container {
-                background: white;
-                padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                background: #1e293b;
+                padding: 40px;
+                border-radius: 16px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                width: 100%;
+                max-width: 420px;
+                border: 1px solid #334155;
             }
-            h2 {
+            
+            .logo-container {
                 text-align: center;
-                color: #333;
                 margin-bottom: 30px;
             }
+            
+            .logo {
+                width: 120px;
+                height: 120px;
+                border-radius: 12px;
+                object-fit: contain;
+                background: #334155;
+                padding: 10px;
+            }
+            
+            h2 {
+                text-align: center;
+                color: #f1f5f9;
+                margin-bottom: 10px;
+                font-size: 24px;
+                font-weight: 600;
+            }
+            
+            .subtitle {
+                text-align: center;
+                color: #94a3b8;
+                margin-bottom: 30px;
+                font-size: 14px;
+            }
+            
             .form-group {
                 margin-bottom: 20px;
             }
+            
             label {
                 display: block;
-                margin-bottom: 5px;
-                color: #555;
+                margin-bottom: 8px;
+                color: #cbd5e1;
+                font-size: 14px;
+                font-weight: 500;
             }
-            input[type="text"], input[type="password"] {
+            
+            input[type="text"], 
+            input[type="password"] {
                 width: 100%;
-                padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
+                padding: 12px 16px;
+                border: 1px solid #334155;
+                border-radius: 8px;
                 font-size: 16px;
-                box-sizing: border-box;
+                background: #0f172a;
+                color: #f1f5f9;
+                transition: all 0.3s ease;
             }
+            
+            input[type="text"]:focus, 
+            input[type="password"]:focus {
+                outline: none;
+                border-color: #6366f1;
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            }
+            
+            input::placeholder {
+                color: #64748b;
+            }
+            
             .login-btn {
                 width: 100%;
-                background: #007bff;
+                background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
                 color: white;
-                padding: 12px;
+                padding: 14px;
                 border: none;
-                border-radius: 5px;
+                border-radius: 8px;
                 font-size: 16px;
+                font-weight: 600;
                 cursor: pointer;
+                transition: all 0.3s ease;
+                margin-top: 10px;
             }
+            
             .login-btn:hover {
-                background: #0056b3;
+                transform: translateY(-2px);
+                box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
             }
+            
+            .login-btn:active {
+                transform: translateY(0);
+            }
+            
             .error {
-                color: #dc3545;
+                color: #fca5a5;
                 text-align: center;
                 margin-bottom: 20px;
-                padding: 10px;
-                background: #f8d7da;
-                border: 1px solid #f5c6cb;
-                border-radius: 5px;
+                padding: 12px;
+                background: rgba(239, 68, 68, 0.1);
+                border: 1px solid rgba(239, 68, 68, 0.3);
+                border-radius: 8px;
+                font-size: 14px;
+            }
+            
+            .lock-icon {
+                font-size: 48px;
+                margin-bottom: 10px;
             }
         </style>
     </head>
     <body>
         <div class="login-container">
-            <h2>🔒 Authentication Required</h2>
-            ${error ? `<div class="error">${error}</div>` : ''}
+            <div class="logo-container">
+                <img src="${logoUrl}" alt="Logo" class="logo">
+            </div>
+            <div class="lock-icon">🔒</div>
+            <h2>Authentication Required</h2>
+            <p class="subtitle">Please sign in to continue</p>
+            
+            ${error ? `<div class="error">❌ ${error}</div>` : ''}
+            
             <form method="POST" action="/login">
                 <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required autofocus>
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
                 </div>
                 <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" required>
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
                 </div>
-                <button type="submit" class="login-btn">Login</button>
+                <button type="submit" class="login-btn">Sign In</button>
             </form>
         </div>
     </body>
