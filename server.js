@@ -11,7 +11,7 @@ const VALID_USERNAME = process.env.AUTH_USERNAME || 'TOWEREMP';
 const VALID_PASSWORD_HASH = process.env.AUTH_PASSWORD_HASH || bcrypt.hashSync('38.59T', 10);
 
 // The URL of the app you want to protect
-const PROTECTED_APP_URL = process.env.PROTECTED_APP_URL || 'https://your-other-app.koyeb.app';
+const PROTECTED_APP_URL = process.env.PROTECTED_APP_URL || 'https://cloudy-casey-mysticdoesnt-591d8e3c.koyeb.app';
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
